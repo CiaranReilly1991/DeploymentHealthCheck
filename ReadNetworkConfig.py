@@ -1,6 +1,7 @@
 from pyexcel_ods import get_data
 import socket
 import os
+import paramiko
 import pdb
 
 """
@@ -82,22 +83,33 @@ def read_IP_Addresses_from_DSD():
 def ping_vm_ip_addresses():
     """
     This method is responsible for pinging the various
-    IP address on different networks between nodes
+    IP address on different networks between nodes by
+    SSH-ing into the different VMs in the cluster
     :return: N/A
     """
-    socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    for network, ips in interface_plus_ips.iteritems():
-        print "Testing Network " + network
-        for ip in ips:
 
-            print "Pinging IP " + ip + " from network " + network
-            rep = os.system('ping -c 3 ' + ip)
-            # pdb.set_trace()
-            if rep is 256:
-                print "IP " + ip + " on " + network + " is dead"
-            else:
+    ssh = paramiko.SSHClient()
+
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    for host_ip in interface_plus_ips.get("OAM VLAN"):
+        print "SSH-ing to VM " + host_ip
+        for network, ips in interface_plus_ips.iteritems():
+            if "SIGTRAN VLAN " in network:
                 continue
+            else:
+                print "Testing Network " + network
+                for ip in ips:
+                    print "Pinging IP " + ip + " from network " + network
+                    # pdb.set_trace()
+                    ssh.connect(host_ip, username='centos', password='centos', allow_agent=True)
+                    _, resp, _ = ssh.exec_command('/usr/bin/ping -c 3 ' + ip)
+                    print resp.readlines()
+                    if len(resp.readlines) < 4:
+                        print "IP " + ip + " on " + network + " is dead"
+                    else:
+                        continue
 
+        ssh.close()
 
 if __name__ == '__main__':
     read_IP_Addresses_from_DSD()
