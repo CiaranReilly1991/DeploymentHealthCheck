@@ -34,8 +34,8 @@ Int_Names = ['Internal VLAN',
              'Gi VLAN VIP',
              'Backup VLAN']
 
-#data = get_data("/home/kudos/ansible/vars/DSD.ods")
-data = get_data("DSD_Du_MMSC_S2.ods")
+data = get_data("/home/kudos/ansible/vars/DSD.ods")
+#data = get_data("DSD_Du_MMSC_S2.ods")
 
 
 def read_IP_Addresses_from_DSD():
@@ -92,24 +92,30 @@ def ping_vm_ip_addresses():
 
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     for host_ip in interface_plus_ips.get("OAM VLAN"):
-        print "SSH-ing to VM " + host_ip
+        print "------------------------------------"
+        print "SSH-ing to VM " + host_ip + "\n"
+        print "------------------------------------"
         for network, ips in interface_plus_ips.iteritems():
             if "SIGTRAN VLAN " in network:
                 continue
             else:
-                print "Testing Network " + network
+                print "Testing Network " + network + "\n"
                 for ip in ips:
-                    print "Pinging IP " + ip + " from network " + network
-                    # pdb.set_trace()
+                    print "Pinging IP " + ip + " from network " + network + " on node " + host_ip + "\n"
                     ssh.connect(host_ip, username='centos', password='centos', allow_agent=True)
                     _, resp, _ = ssh.exec_command('/usr/bin/ping -c 3 ' + ip)
-                    print resp.readlines()
-                    if len(resp.readlines) < 4:
-                        print "IP " + ip + " on " + network + " is dead"
-                    else:
+                    print resp.readlines() # This line prints all the ping responses
+                    try:
+                        assert (len(resp.readlines()) < 4)
+                    except AssertionError as e:
+                        print e
+                        print host_ip + " ERROR found " + ip
                         continue
-
+        print "------------------------------------"
+        print host_ip + " Completed " + "\n"
+        print "------------------------------------"
         ssh.close()
+
 
 if __name__ == '__main__':
     read_IP_Addresses_from_DSD()
