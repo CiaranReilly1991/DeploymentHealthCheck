@@ -138,15 +138,20 @@ def ping_vm_ip_addresses():
 
 
 def verify_disk_mount_sizes():
-    """
-    Compare the disk sizes between VM and DSD and
-    store the result in an ERROR report dictionary
-    """
+
     VM_Disk = TestDisk
     for dsd_partition in DSD_Disk.keys():
         if dsd_partition in VM_Disk.keys():
-            if DSD_Disk[dsd_partition].strip('GB') == VM_Disk[dsd_partition].strip('GB'):
-                print dsd_partition + " Partition size is correct"
+            # Convert MB to GB for consistency
+            if ("M" or "MB") in VM_Disk[dsd_partition]:
+                VM_Disk[dsd_partition] = \
+                    str(round
+                        (float(
+                            VM_Disk[dsd_partition].strip(' M'))*0.001, 1)) + " GB"
+            if (DSD_Disk[dsd_partition].strip('GB') == VM_Disk[dsd_partition].strip('GB')) \
+                    or (round(float(DSD_Disk[dsd_partition].strip('GB'))) ==
+                        round(float(VM_Disk[dsd_partition].strip('GB')))):
+                continue
             else:
                 disk_report[dsd_partition] = [DSD_Disk[dsd_partition],
                                               VM_Disk[dsd_partition]]

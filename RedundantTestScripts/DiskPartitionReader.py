@@ -8,10 +8,10 @@ Report = {}
 
 TestDisk = {'/docker': '140 G',
             '/var': '20 G',
-            '/tmp': '19.5 G',
+            '/tmp': '20 G',
             '/home': '5 G',
             '/var/cores': '20 G',
-            '/boot': '0.5 G',
+            '/boot': '509 M',
             '/commit': '10 G',
             '/apps': '100 G',
             '/': '5 G',
@@ -26,7 +26,7 @@ Python script that will compare the DSD disk partitions
 to what's seen on the VM
 """
 
-data = get_data("DSD_Du_MMSC_S2.ods")
+data = get_data("../DSD_Du_MMSC_S2.ods")
 
 
 """
@@ -40,8 +40,16 @@ def verify_disk_mount_sizes():
     VM_Disk = TestDisk
     for dsd_partition in DSD_Disk.keys():
         if dsd_partition in VM_Disk.keys():
-            if DSD_Disk[dsd_partition].strip('GB')[0] == VM_Disk[dsd_partition].strip('GB')[0]:
-                print dsd_partition + " Partition size is correct"
+            # Convert MB to GB for consistency
+            if ("M" or "MB") in VM_Disk[dsd_partition]:
+                VM_Disk[dsd_partition] = \
+                    str(round
+                        (float(
+                            VM_Disk[dsd_partition].strip(' M'))*0.001, 1)) + " GB"
+            if (DSD_Disk[dsd_partition].strip('GB') == VM_Disk[dsd_partition].strip('GB')) \
+                    or (round(float(DSD_Disk[dsd_partition].strip('GB'))) ==
+                        round(float(VM_Disk[dsd_partition].strip('GB')))):
+                continue
             else:
                 Report[dsd_partition] = [DSD_Disk[dsd_partition],
                                          VM_Disk[dsd_partition]]
