@@ -142,10 +142,10 @@ def verify_disk_mount_sizes():
     Compare the disk sizes between VM and DSD and
     store the result in an ERROR report dictionary
     """
-    #VM_Disk = TestDisk
+    VM_Disk = TestDisk
     for dsd_partition in DSD_Disk.keys():
         if dsd_partition in VM_Disk.keys():
-            if DSD_Disk[dsd_partition].strip('GB')[0] == VM_Disk[dsd_partition].strip('GB')[0]:
+            if DSD_Disk[dsd_partition].strip('GB') == VM_Disk[dsd_partition].strip('GB'):
                 print dsd_partition + " Partition size is correct"
             else:
                 disk_report[dsd_partition] = [DSD_Disk[dsd_partition],
