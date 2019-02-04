@@ -232,7 +232,7 @@ def get_CPU_and_Memory():
         hostname = hostname.readlines()[0]
         _, console_output, _ = ssh.exec_command('lscpu')
         lines = console_output.readlines()
-
+        ssh.close()
         # print "-----------------------------------------------------------"
         # print "SSH-ing to VM " + hostname + " IP Address " + host_ip + "\n"
         # print "-----------------------------------------------------------"
