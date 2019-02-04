@@ -262,6 +262,7 @@ def show_error_report():
                 print "WARNING: MISMATCHED (CORE THREADS * SOCKETS) Vs CPUs"
                 print "------------------------------------------------------"
             print "CPUs " + str(CPU_Reports[hostnames]["CPUs"])
+            print "Threading " + CPU_Reports[hostnames]["Threading"]
             print "Core Threads " + str(CPU_Reports[hostnames]["CoreThreads"])
             print "Sockets " + str(CPU_Reports[hostnames]["Sockets"])
             print "----------------------------------------------------------------"
