@@ -1,7 +1,6 @@
 """
-This python script allows us to test the IP addresses are
-reachable from within the cluster and compare the DSD disk partitions
-to what's seen on the VM
+This python script allows us to test several node configs before
+deploying TC6000
 
 Currently the script requires the DSD.ods file from the
 ansible container to extract all the relevant IP networks info and
@@ -22,6 +21,8 @@ VM_Disk = {}
 DSD_Disk = {}
 disk_report = {}
 network_report ={}
+CPU_Reports ={}
+
 
 TestDisk = {'/docker': '140 GB',
             '/var': '20 GB',
@@ -111,19 +112,21 @@ def ping_vm_ip_addresses():
 
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     for host_ip in interface_plus_ips.get("OAM VLAN"):
-        print "------------------------------------"
-        print "SSH-ing to VM " + host_ip + "\n"
-        print "------------------------------------"
         for network, ips in interface_plus_ips.iteritems():
+            print "----------------------------------------------------"
+            print "SSH-ing to VM " + host_ip + "\n"
+            print "----------------------------------------------------"
             if "SIGTRAN VLAN " in network:
                 continue
             else:
                 print "Testing Network " + network + "\n"
                 for ip in ips:
-                    print "Pinging IP " + ip + " from network " + network + " on node " + host_ip + "\n"
                     ssh.connect(host_ip, username='centos', password='centos', allow_agent=True)
                     _, resp, _ = ssh.exec_command('/usr/bin/ping -c 3 ' + ip)
-                    print resp.readlines() # This line prints all the ping responses
+                    _, hostname, _ = ssh.exec_command('hostname')
+                    hostname = hostname.readlines()[0]
+                    #print resp.readlines() # This line prints all the ping responses
+                    print "Pinging IP " + ip + " from network " + network + " on node " + host_ip + "\n"
                     try:
                         assert (len(resp.readlines()) < 4)
                     except AssertionError as e:
@@ -131,14 +134,18 @@ def ping_vm_ip_addresses():
                         #print host_ip + " ERROR found " + ip
                         network_report[network] = [ip + " IP Not Ping-able from " + host_ip]
                         continue
-        print "------------------------------------"
-        print host_ip + " Completed " + "\n"
-        print "------------------------------------"
+            print "------------------------------------"
+            print hostname + " Completed " + "\n"
+            print "------------------------------------"
         ssh.close()
 
 
 def verify_disk_mount_sizes():
-
+    """
+    Method that compares the DSD Disk partitions
+    with the VM disk partitions
+    :return: Nothing
+    """
     VM_Disk = TestDisk
     for dsd_partition in DSD_Disk.keys():
         if dsd_partition in VM_Disk.keys():
@@ -188,25 +195,52 @@ def get_disk_space_from_vm():
     Purpose: To SSH into a VM and run df -h
     """
     for host_ip in interface_plus_ips.get("OAM VLAN"):
-        print "------------------------------------"
-        print "SSH-ing to VM " + host_ip + "\n"
-        print "------------------------------------"
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(host_ip, username='centos', password='centos')
+        _, hostname, _ = ssh.exec_command('hostname')
+        hostname = hostname.readlines()[0]
         _, console_output, _ = ssh.exec_command('df -h')
         lines = console_output.readlines()
+        print "----------------------------------------------------"
+        print "SSH-ing to VM " + hostname + " " + (host_ip) + "\n"
+        print "----------------------------------------------------"
         for i in range(0, len(lines)):
             if i is 0:
                 continue
             else:
                 VM_Disk.update({lines[i].split()[5]: lines[i].split()[1]})
         print "------------------------------------"
-        print host_ip + " Completed " + "\n"
+        print hostname + " Completed " + "\n"
         print "------------------------------------"
     ssh.close()
 
     verify_disk_mount_sizes()
+
+
+def get_CPU_and_Memory():
+    """
+    Method that gets CPU specs and determines if hyperthreading
+    is enabled on nodes or not
+    :return: Updates the CPU report at end of method
+    """
+    for host_ip in interface_plus_ips.get("OAM VLAN"):
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(host_ip, username='centos', password='centos')
+        _, hostname, _ = ssh.exec_command('hostname')
+        hostname = hostname.readlines()[0]
+        _, console_output, _ = ssh.exec_command('lscpu')
+        lines = console_output.readlines()
+
+        # print "-----------------------------------------------------------"
+        # print "SSH-ing to VM " + hostname + " IP Address " + host_ip + "\n"
+        # print "-----------------------------------------------------------"
+        CPU_Reports[hostname] = {}
+        CPU_Reports[hostname][host_ip] = host_ip
+        CPU_Reports[hostname]["CPUs"] = int(lines[3].split()[1])
+        CPU_Reports[hostname]["CoreThreads"] = int(lines[5].split()[3])
+        CPU_Reports[hostname]["Sockets"] = int(lines[7].split()[1])
 
 
 def show_error_report():
@@ -214,6 +248,24 @@ def show_error_report():
     Collate the errors found into a report
     :return:
     """
+    if CPU_Reports:
+        for hostnames in CPU_Reports.keys():
+            print "---------------------------------------------------------------"
+            print hostnames
+            if CPU_Reports[hostnames]["CoreThreads"] > 1:
+                CPU_Reports[hostnames]["Threading "] = " Enabled"
+            else:
+                CPU_Reports[hostnames]["Threading "] = " Disabled"
+            if CPU_Reports[hostnames]["CoreThreads"] * CPU_Reports[hostnames]["Sockets"] != \
+                    CPU_Reports[hostnames]["CPUs"]:
+                print "------------------------------------------------------"
+                print "WARNING: MISMATCHED (CORE THREADS * SOCKETS) Vs CPUs"
+                print "------------------------------------------------------"
+            print "CPUs " + str(CPU_Reports[hostnames]["CPUs"])
+            print "Core Threads " + str(CPU_Reports[hostnames]["CoreThreads"])
+            print "Sockets " + str(CPU_Reports[hostnames]["Sockets"])
+            print "----------------------------------------------------------------"
+
     if network_report:
         print "---------------------------------------------------"
         print "Errors found on the following Networks "
@@ -235,6 +287,11 @@ if __name__ == '__main__':
     read_disk_partitions_from_DSD()
 
     print "======================================================="
+    print "Beginning Multi-Threading and CPU Test"
+    print "======================================================="
+    get_CPU_and_Memory()
+
+    print "======================================================="
     print "Beginning Network Test"
     print "======================================================="
     ping_vm_ip_addresses()
@@ -245,6 +302,6 @@ if __name__ == '__main__':
     get_disk_space_from_vm()
 
     print "======================================================="
-    print "ERROR Reports"
+    print " Reports"
     print "======================================================="
     show_error_report()
