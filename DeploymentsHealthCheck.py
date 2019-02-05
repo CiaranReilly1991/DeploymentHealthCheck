@@ -20,9 +20,9 @@ import pdb
 VM_Disk = {}
 DSD_Disk = {}
 disk_report = {}
-network_report ={}
-CPU_Reports ={}
-
+network_report = {}
+CPU_Reports = {}
+vm_ips = {}
 
 TestDisk = {'/docker': '140 GB',
             '/var': '20 GB',
@@ -100,6 +100,42 @@ def read_IP_Addresses_from_DSD():
     print interface_plus_ips
 
 
+def read_disk_partitions_from_DSD():
+    """
+    Method: read_disk_partitions_from_DSD
+    Purpose: To read disk partitions from DSD
+    Comments:
+
+    DSD is currently set above, but we will
+    eventually pass the DSD as an arguement
+    when running the scripts. I've tested
+    with a few DSD's and seems to work fine.
+
+    """
+    disk_lines = range(15, len(data.get("OS")))
+    for line in disk_lines:
+        if "/" in (data.get("OS")[line][0]):
+            # This line extracts the Partition and the
+            # Size in GB from the OS tab in the DSD
+            DSD_Disk.update(
+                {str(data.get("OS")[line][0]):
+                     str(data.get("OS")[line][4]) + " GB"})
+        else:
+            break
+
+
+def create_hostname_ip_matrix():
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    for host_ip in interface_plus_ips.get("OAM VLAN"):
+        ssh.connect(host_ip, username='centos', password='centos', allow_agent=True)
+        _, hostname, _ = ssh.exec_command('hostname')
+        hostname = str(hostname.readlines()[0]).strip('\n')
+        vm_ips[hostname] = host_ip
+        ssh.close()
+
+
 def ping_vm_ip_addresses():
     """
     This method is responsible for pinging the various
@@ -107,15 +143,13 @@ def ping_vm_ip_addresses():
     SSH-ing into the different VMs in the cluster
     :return: N/A
     """
-
     ssh = paramiko.SSHClient()
-
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    for host_ip in interface_plus_ips.get("OAM VLAN"):
+    for host_ip, hostname in zip(vm_ips.itervalues(), vm_ips.keys()):
+        print "----------------------------------------------------"
+        print "SSH-ing to VM " + hostname + "\n"
+        print "----------------------------------------------------"
         for network, ips in interface_plus_ips.iteritems():
-            print "----------------------------------------------------"
-            print "SSH-ing to VM " + host_ip + "\n"
-            print "----------------------------------------------------"
             if "SIGTRAN VLAN " in network:
                 continue
             else:
@@ -123,9 +157,7 @@ def ping_vm_ip_addresses():
                 for ip in ips:
                     ssh.connect(host_ip, username='centos', password='centos', allow_agent=True)
                     _, resp, _ = ssh.exec_command('/usr/bin/ping -c 3 ' + ip)
-                    _, hostname, _ = ssh.exec_command('hostname')
-                    hostname = hostname.readlines()[0]
-                    #print resp.readlines() # This line prints all the ping responses
+                    print resp.readlines() # This line prints all the ping responses
                     print "Pinging IP " + ip + " from network " + network + " on node " + host_ip + "\n"
                     try:
                         assert (len(resp.readlines()) < 4)
@@ -134,9 +166,9 @@ def ping_vm_ip_addresses():
                         #print host_ip + " ERROR found " + ip
                         network_report[network] = [ip + " IP Not Ping-able from " + host_ip]
                         continue
-            print "------------------------------------"
-            print hostname + " Completed " + "\n"
-            print "------------------------------------"
+        print "------------------------------------"
+        print hostname + " Completed " + "\n"
+        print "------------------------------------"
         ssh.close()
 
 
@@ -165,53 +197,24 @@ def verify_disk_mount_sizes():
                 continue
 
 
-def read_disk_partitions_from_DSD():
-    """
-    Method: read_disk_partitions_from_DSD
-    Purpose: To read disk partitions from DSD
-    Comments:
-
-    DSD is currently set above, but we will
-    eventually pass the DSD as an arguement
-    when running the scripts. I've tested
-    with a few DSD's and seems to work fine.
-
-    """
-    disk_lines = range(15, len(data.get("OS")))
-    for line in disk_lines:
-        if "/" in (data.get("OS")[line][0]):
-            # This line extracts the Partition and the
-            # Size in GB from the OS tab in the DSD
-            DSD_Disk.update(
-                {str(data.get("OS")[line][0]):
-                     str(data.get("OS")[line][4]) + " GB"})
-        else:
-            break
-
-
 def get_disk_space_from_vm():
     """
     Method: get_disk_space_from_vm
     Purpose: To SSH into a VM and run df -h
     """
-    for host_ip in interface_plus_ips.get("OAM VLAN"):
+    for host_ip, hostname in zip(vm_ips.itervalues(), vm_ips.keys()):
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(host_ip, username='centos', password='centos')
-        _, hostname, _ = ssh.exec_command('hostname')
-        hostname = hostname.readlines()[0]
         _, console_output, _ = ssh.exec_command('df -h')
         lines = console_output.readlines()
         print "----------------------------------------------------"
-        print "SSH-ing to VM " + hostname + " " + (host_ip) + "\n"
+        print "SSH-ing to VM " + hostname + "\n"
         print "----------------------------------------------------"
-        for i in range(0, len(lines)):
-            if i is 0:
-                continue
-            else:
-                VM_Disk.update({lines[i].split()[5]: lines[i].split()[1]})
+        for i in range(1, len(lines)):
+            VM_Disk.update({lines[i].split()[5]: lines[i].split()[1]})
         print "------------------------------------"
-        print hostname + " Completed " + "\n"
+        print hostname + " Completed "
         print "------------------------------------"
     ssh.close()
 
@@ -224,18 +227,13 @@ def get_CPU_and_Memory():
     is enabled on nodes or not
     :return: Updates the CPU report at end of method
     """
-    for host_ip in interface_plus_ips.get("OAM VLAN"):
+    for host_ip, hostname in zip(vm_ips.itervalues(), vm_ips.keys()):
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(host_ip, username='centos', password='centos')
-        _, hostname, _ = ssh.exec_command('hostname')
-        hostname = hostname.readlines()[0]
         _, console_output, _ = ssh.exec_command('lscpu')
         lines = console_output.readlines()
         ssh.close()
-        # print "-----------------------------------------------------------"
-        # print "SSH-ing to VM " + hostname + " IP Address " + host_ip + "\n"
-        # print "-----------------------------------------------------------"
         CPU_Reports[hostname] = {}
         CPU_Reports[hostname][host_ip] = host_ip
         CPU_Reports[hostname]["CPUs"] = int(lines[3].split()[1])
@@ -262,7 +260,7 @@ def show_error_report():
                 print "WARNING: MISMATCHED (CORE THREADS * SOCKETS) Vs CPUs"
                 print "------------------------------------------------------"
             print "CPUs " + str(CPU_Reports[hostnames]["CPUs"])
-            print "Threading " + CPU_Reports[hostnames]["Threading"]
+            print "Threading " + CPU_Reports[hostnames]["Threading "]
             print "Core Threads " + str(CPU_Reports[hostnames]["CoreThreads"])
             print "Sockets " + str(CPU_Reports[hostnames]["Sockets"])
             print "----------------------------------------------------------------"
@@ -272,11 +270,19 @@ def show_error_report():
         print "Errors found on the following Networks "
         print "---------------------------------------------------"
         print network_report
+    else:
+        print "***************************************************"
+        print "PASS: No Network Issues found"
+        print "***************************************************"
     if disk_report:
         print "---------------------------------------------------"
         print "Errors found in the following Disk Partitions "
         print "---------------------------------------------------"
         print disk_report
+    else:
+        print "***************************************************"
+        print "PASS: No Disk Issues found"
+        print "***************************************************"
 
 
 if __name__ == '__main__':
@@ -288,7 +294,12 @@ if __name__ == '__main__':
     read_disk_partitions_from_DSD()
 
     print "======================================================="
-    print "Beginning Multi-Threading and CPU Test"
+    print "CREATING HOSTNAME MATRIX"
+    print "======================================================="
+    create_hostname_ip_matrix()
+
+    print "======================================================="
+    print "Beginning Multi-Threading CPU Test"
     print "======================================================="
     get_CPU_and_Memory()
 
