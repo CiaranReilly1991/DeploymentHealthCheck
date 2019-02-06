@@ -199,6 +199,9 @@ def verify_disk_mount_sizes():
             if (DSD_Disk[dsd_partition].strip('GB') == VM_Disk[dsd_partition].strip('GB')) \
                     or (round(float(DSD_Disk[dsd_partition].strip('GB'))) ==
                         round(float(VM_Disk[dsd_partition].strip('GB')))):
+                print "*************************"
+                print dsd_partition + " PASS"
+                print "*************************"
                 continue
             else:
                 disk_report[dsd_partition] = [DSD_Disk[dsd_partition],
@@ -225,9 +228,8 @@ def get_disk_space_from_vm():
         print "------------------------------------"
         print hostname + " Completed "
         print "------------------------------------"
-    ssh.close()
-
-    verify_disk_mount_sizes()
+        ssh.close()
+        verify_disk_mount_sizes()
 
 
 def get_CPU_and_Memory():
