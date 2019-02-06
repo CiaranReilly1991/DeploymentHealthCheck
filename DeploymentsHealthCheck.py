@@ -187,7 +187,7 @@ def verify_disk_mount_sizes():
     with the VM disk partitions
     :return: Nothing
     """
-    #VM_Disk = TestDisk
+    # VM_Disk = TestDisk
     for dsd_partition in DSD_Disk.keys():
         if dsd_partition in VM_Disk.keys():
             # Convert MB to GB for consistency
