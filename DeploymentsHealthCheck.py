@@ -125,6 +125,12 @@ def read_disk_partitions_from_DSD():
 
 
 def create_hostname_ip_matrix():
+    """
+    Method to create hostname vs IP address
+    matrix that is more efficiently referenced
+    rather than using interface_plus_ips
+    :return: Populates vm_ips dictionary
+    """
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -157,14 +163,14 @@ def ping_vm_ip_addresses():
                 for ip in ips:
                     ssh.connect(host_ip, username='centos', password='centos', allow_agent=True)
                     _, resp, _ = ssh.exec_command('/usr/bin/ping -c 3 ' + ip)
-                    print resp.readlines() # This line prints all the ping responses
+                    # This line prints all the ping responses
+                    print resp.readlines()
                     print "Pinging IP " + ip + " from network " + network + " on node " + host_ip + "\n"
                     try:
                         assert (len(resp.readlines()) < 4)
                     except AssertionError as e:
                         print e
-                        #print host_ip + " ERROR found " + ip
-                        network_report[network] = [ip + " IP Not Ping-able from " + host_ip]
+                        network_report[network] = [ip + " IP Not Ping-able from " + hostname]
                         continue
         print "------------------------------------"
         print hostname + " Completed " + "\n"
