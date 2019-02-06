@@ -118,8 +118,11 @@ def read_disk_partitions_from_DSD():
             # This line extracts the Partition and the
             # Size in GB from the OS tab in the DSD
             DSD_Disk.update(
-                {str(data.get("OS")[line][0]):
-                     str(data.get("OS")[line][4]) + " GB"})
+                {
+                    str(data.get("OS")[line][0]):
+                        str(data.get("OS")[line][4]) + " GB"
+                }
+            )
         else:
             break
 
@@ -184,7 +187,7 @@ def verify_disk_mount_sizes():
     with the VM disk partitions
     :return: Nothing
     """
-    VM_Disk = TestDisk
+    #VM_Disk = TestDisk
     for dsd_partition in DSD_Disk.keys():
         if dsd_partition in VM_Disk.keys():
             # Convert MB to GB for consistency
