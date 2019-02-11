@@ -3,18 +3,23 @@ This python script allows us to test several node configs before
 deploying TC6000
 
 Currently the script requires the DSD.ods file from the
-ansible container to extract all the relevant IP networks info and
-disk partitions and should verify the addresses respond successfully
-and the mount sizes are correct.
+ansible container to extract all the relevant information and
+verifies the following
+
+    1. IP addresses in DSD are reachable from each VM
+    2. Ensures the disk partitions match the DSD on each VM
+    3. Gathers CPU details from each VM
+    4. Determines if hyperthreading is enabled on each VM
+    5. Highlights what network ports are open on each VM
 
 NOTE:
-Further validation tightening needs to be put in place when a ping
-fails to reach the IP in question. Currently if a ping fails it
-will proceed to the following IP from the DSD as so forth
+If there are any failures during the test a report is generated
+on the output of the python script
 """
 
 from pyexcel_ods import get_data
 import paramiko
+import json
 import pdb
 
 VM_Disk = {}
@@ -23,6 +28,9 @@ disk_report = {}
 network_report = {}
 CPU_Reports = {}
 vm_ips = {}
+ports = {}
+
+banner = 60
 
 TestDisk = {'/docker': '140 GB',
             '/var': '20 GB',
@@ -155,9 +163,9 @@ def ping_vm_ip_addresses():
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     for host_ip, hostname in zip(vm_ips.itervalues(), vm_ips.keys()):
-        print "----------------------------------------------------"
+        print "-" * banner
         print "SSH-ing to VM " + hostname + "\n"
-        print "----------------------------------------------------"
+        print "-" * banner
         for network, ips in interface_plus_ips.iteritems():
             if "SIGTRAN VLAN " in network:
                 continue
@@ -175,9 +183,9 @@ def ping_vm_ip_addresses():
                         print e
                         network_report[network] = [ip + " IP Not Ping-able from " + hostname]
                         continue
-        print "------------------------------------"
+        print "-" * banner
         print hostname + " Completed " + "\n"
-        print "------------------------------------"
+        print "-" * banner
         ssh.close()
 
 
@@ -199,9 +207,9 @@ def verify_disk_mount_sizes():
             if (DSD_Disk[dsd_partition].strip('GB') == VM_Disk[dsd_partition].strip('GB')) \
                     or (round(float(DSD_Disk[dsd_partition].strip('GB'))) ==
                         round(float(VM_Disk[dsd_partition].strip('GB')))):
-                print "*************************"
+                print "**" * banner
                 print dsd_partition + " PASS"
-                print "*************************"
+                print "**" * banner
                 continue
             else:
                 disk_report[dsd_partition] = [DSD_Disk[dsd_partition],
@@ -220,14 +228,14 @@ def get_disk_space_from_vm():
         ssh.connect(host_ip, username='centos', password='centos')
         _, console_output, _ = ssh.exec_command('df -h')
         lines = console_output.readlines()
-        print "----------------------------------------------------"
+        print "-" * banner
         print "SSH-ing to VM " + hostname + "\n"
-        print "----------------------------------------------------"
+        print "-" * banner
         for i in range(1, len(lines)):
             VM_Disk.update({lines[i].split()[5]: lines[i].split()[1]})
-        print "------------------------------------"
+        print "-" * banner
         print hostname + " Completed "
-        print "------------------------------------"
+        print "-" * banner
         ssh.close()
         verify_disk_mount_sizes()
 
@@ -252,14 +260,44 @@ def get_CPU_and_Memory():
         CPU_Reports[hostname]["Sockets"] = int(lines[7].split()[1])
 
 
-def show_error_report():
+def read_open_network_ports():
     """
-    Collate the errors found into a report
+    Method that returns a list of open TCP Network
+    Ports on a given node in the cluster
+    :return: List of given network ports
+    """
+    port = []
+    for hostname, host_ip in zip(vm_ips.keys(), vm_ips.values()):
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(host_ip, username='centos', password='centos')
+        print "-" * banner
+        print "Scanning open ports remote host", hostname
+        print "-" * banner
+        ###  List of open TCP ports
+        ###  netstat -vatn | grep -i LISTEN
+        _, open_ports, _ = ssh.exec_command('netstat -vatn | grep -i LISTEN')
+        port_list = open_ports.readlines()
+        ssh.close()
+
+        for port_numbers in port_list:
+            if port_numbers.split()[3].split(":")[1] == "":
+                continue
+            else:
+                port.append(port_numbers.split()[3].split(":")[1])
+
+        ports.update({hostname: port})
+        port = []
+
+
+def show_reports():
+    """
+    Collate any errors found into a report
     :return:
     """
     if CPU_Reports:
         for hostnames in CPU_Reports.keys():
-            print "---------------------------------------------------------------"
+            print "-" * banner
             print hostnames
             if CPU_Reports[hostnames]["CoreThreads"] > 1:
                 CPU_Reports[hostnames]["Threading "] = " Enabled"
@@ -267,64 +305,73 @@ def show_error_report():
                 CPU_Reports[hostnames]["Threading "] = " Disabled"
             if CPU_Reports[hostnames]["CoreThreads"] * CPU_Reports[hostnames]["Sockets"] != \
                     CPU_Reports[hostnames]["CPUs"]:
-                print "------------------------------------------------------"
+                print "-" * banner
                 print "WARNING: MISMATCHED (CORE THREADS * SOCKETS) Vs CPUs"
-                print "------------------------------------------------------"
+                print "-" * banner
             print "CPUs " + str(CPU_Reports[hostnames]["CPUs"])
             print "Threading " + CPU_Reports[hostnames]["Threading "]
             print "Core Threads " + str(CPU_Reports[hostnames]["CoreThreads"])
             print "Sockets " + str(CPU_Reports[hostnames]["Sockets"])
-            print "----------------------------------------------------------------"
-
+            print "-" * banner
+    if not ports:
+        print "-" * banner
+        print "Errors found with open Network Ports "
+        print "-" * banner
+        print json.dumps(ports, sort_keys=True, indent=4)
+    else:
+        print "**" * banner
+        print "PASS: Following Network Ports are open on each node respectively"
+        print "**" * banner
+        print json.dumps(ports, sort_keys=True, indent=4)
     if network_report:
-        print "---------------------------------------------------"
+        print "-" * banner
         print "Errors found on the following Networks "
-        print "---------------------------------------------------"
-        print network_report
+        print "-" * banner
+        print json.dumps(network_report, sort_keys=True, indent=4)
     else:
-        print "***************************************************"
+        print "**" * banner
         print "PASS: No Network Issues found"
-        print "***************************************************"
+        print "**" * banner
     if disk_report:
-        print "---------------------------------------------------"
+        print "-" * banner
         print "Errors found in the following Disk Partitions "
-        print "---------------------------------------------------"
-        print disk_report
+        print "-" * banner
+        print json.dumps(disk_report, sort_keys=True, indent=4)
     else:
-        print "***************************************************"
+        print "**" * banner
         print "PASS: No Disk Issues found"
-        print "***************************************************"
+        print "**" * banner
 
 
 if __name__ == '__main__':
     # Reading Information from DSD
-    print "======================================================="
+    print "=" * banner
     print "READING INFORMATION FROM THE CUSTOMERS DSD"
-    print "======================================================="
+    print "=" * banner
     read_IP_Addresses_from_DSD()
     read_disk_partitions_from_DSD()
 
-    print "======================================================="
+    print "=" * banner
     print "CREATING HOSTNAME MATRIX"
-    print "======================================================="
+    print "=" * banner
     create_hostname_ip_matrix()
 
-    print "======================================================="
+    print "=" * banner
     print "Beginning Multi-Threading CPU Test"
-    print "======================================================="
+    print "=" * banner
     get_CPU_and_Memory()
 
-    print "======================================================="
+    print "=" * banner
     print "Beginning Network Test"
-    print "======================================================="
+    print "=" * banner
     ping_vm_ip_addresses()
 
-    print "======================================================="
+    print "=" * banner
     print "Beginning Disk Partition Test"
-    print "======================================================="
+    print "=" * banner
     get_disk_space_from_vm()
 
-    print "======================================================="
+    print "=" * banner
     print " Reports"
-    print "======================================================="
-    show_error_report()
+    print "=" * banner
+    show_reports()
