@@ -63,6 +63,13 @@ Int_Names = ['Internal VLAN',
              'Gi VLAN VIP',
              'Backup VLAN']
 
+cluster_types_and_ports = {
+    "SMSC": [],
+    "MMSC": [],
+    "AppRouter": [],
+    "MEP": [],
+    "Insight": []
+}
 data = get_data("/home/kudos/ansible/vars/DSD.ods")
 
 
@@ -266,10 +273,10 @@ def read_open_network_ports():
     Ports on a given node in the cluster
     :return: List of given network ports
     """
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     port = []
     for hostname, host_ip in zip(vm_ips.keys(), vm_ips.values()):
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(host_ip, username='centos', password='centos')
         print "-" * banner
         print "Scanning open ports remote host", hostname
@@ -365,6 +372,11 @@ if __name__ == '__main__':
     print "Beginning Network Test"
     print "=" * banner
     ping_vm_ip_addresses()
+
+    print "=" * banner
+    print "Beginning Network Port Test"
+    print "=" * banner
+    read_open_network_ports()
 
     print "=" * banner
     print "Beginning Disk Partition Test"
