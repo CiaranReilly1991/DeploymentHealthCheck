@@ -345,7 +345,7 @@ def show_reports():
                 print "WARNING: MISMATCHED (CORE THREADS * SOCKETS) Vs CPUs"
                 print "-" * banner
             print "CPUs " + str(CPU_Reports[hostnames]["CPUs"])
-            print "Threading " + CPU_Reports[hostnames]["Threading "]
+            print "Hyper-Threading " + CPU_Reports[hostnames]["Threading "]
             print "Core Threads " + str(CPU_Reports[hostnames]["CoreThreads"])
             print "Sockets " + str(CPU_Reports[hostnames]["Sockets"])
             print "-" * banner
@@ -354,7 +354,7 @@ def show_reports():
         print "-" * banner
         print "Errors found with un-opened Network Ports "
         print "-" * banner
-        print json.dumps(network_port_diff, sort_keys=True, indent=4)
+        print network_port_diff
     if ports:
         print "**" * banner
         print "Following Network Ports are open on each node respectively"
