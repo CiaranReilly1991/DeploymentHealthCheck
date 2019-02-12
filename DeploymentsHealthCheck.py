@@ -11,6 +11,7 @@ verifies the following
     3. Gathers CPU details from each VM
     4. Determines if hyperthreading is enabled on each VM
     5. Highlights what network ports are open on each VM
+    6. Shows any network ports unopened based off cluster personality
 
 NOTE:
 If there are any failures during the test a report is generated
@@ -22,16 +23,25 @@ import paramiko
 import json
 import pdb
 
+data = get_data("/home/kudos/ansible/vars/DSD.ods")
+
+cluster_personality = data.get("Other")[22][1]
+banner = 60
 VM_Disk = {}
 DSD_Disk = {}
+
+#######################################################
+vm_ips = {}
+ports = {}
+interface_plus_ips = {}
+
+########################################################
 disk_report = {}
 network_report = {}
 CPU_Reports = {}
-vm_ips = {}
-ports = {}
+network_port_diff = {}
 
-banner = 60
-
+########################################################
 TestDisk = {'/docker': '140 GB',
             '/var': '20 GB',
             '/tmp': '19.5 GB',
@@ -46,8 +56,6 @@ TestDisk = {'/docker': '140 GB',
             '/logs': '20 GB',
             '/data': '10 GB',
             '/tc-image': '10 GB'}
-
-interface_plus_ips ={}
 
 Int_Names = ['Internal VLAN',
              'Internal VLAN VIP',
@@ -64,13 +72,12 @@ Int_Names = ['Internal VLAN',
              'Backup VLAN']
 
 cluster_types_and_ports = {
-    "SMSC": [],
-    "MMSC": [],
-    "AppRouter": [],
-    "MEP": [],
-    "Insight": []
+    "SMSC": ["2222", "8888", "2775", "29997", "50000", "25", "8090", "2525", "22", "111"],
+    "MMSC": ["2222", "8888", "2775", "29997", "50000", "25", "8090", "2525", "22", "111", "8090"],
+    "IMX": ["2222", "8888", "2775", "29997", "50000", "25", "8090", "2525", "22", "111", "8088", "8091", "443"],
+    "INSIGHT": ["2222", "8888", "2775", "29997", "50000", "25", "8090", "2525", "22", "111", "8087"],
+    "INSCARE": ["2222", "8888", "2775", "29997", "50000", "25", "8090", "2525", "22", "111", "8087"]
 }
-data = get_data("/home/kudos/ansible/vars/DSD.ods")
 
 
 def read_IP_Addresses_from_DSD():
@@ -267,6 +274,26 @@ def get_CPU_and_Memory():
         CPU_Reports[hostname]["Sockets"] = int(lines[7].split()[1])
 
 
+def compare_network_ports():
+    """
+    Compare the network ports gotten from
+    each VM and the clusters personality type
+    and populate the port_discrepencies
+    :return:
+    """
+    for node_name in ports.keys():
+        if cluster_personality in cluster_types_and_ports.keys():
+            network_port_diff.update(
+                {
+                    node_name: set(cluster_types_and_ports[cluster_personality]) - set(ports[node_name])
+                }
+            )
+        else:
+            print "==" * banner
+            print "ERROR: Cluster Personality Not Found"
+            print "==" * banner
+
+
 def read_open_network_ports():
     """
     Method that returns a list of open TCP Network
@@ -295,6 +322,7 @@ def read_open_network_ports():
 
         ports.update({hostname: port})
         port = []
+    compare_network_ports()
 
 
 def show_reports():
@@ -302,6 +330,7 @@ def show_reports():
     Collate any errors found into a report
     :return:
     """
+    #### CPU Reporting ###
     if CPU_Reports:
         for hostnames in CPU_Reports.keys():
             print "-" * banner
@@ -320,16 +349,18 @@ def show_reports():
             print "Core Threads " + str(CPU_Reports[hostnames]["CoreThreads"])
             print "Sockets " + str(CPU_Reports[hostnames]["Sockets"])
             print "-" * banner
-    if not ports:
+    ### Network Ports Vs Cluster Personality ###
+    if network_port_diff:
         print "-" * banner
-        print "Errors found with open Network Ports "
+        print "Errors found with un-opened Network Ports "
         print "-" * banner
-        print json.dumps(ports, sort_keys=True, indent=4)
-    else:
+        print json.dumps(network_port_diff, sort_keys=True, indent=4)
+    if ports:
         print "**" * banner
-        print "PASS: Following Network Ports are open on each node respectively"
+        print "Following Network Ports are open on each node respectively"
         print "**" * banner
         print json.dumps(ports, sort_keys=True, indent=4)
+    ### Unreachable Network Addresses ###
     if network_report:
         print "-" * banner
         print "Errors found on the following Networks "
@@ -339,6 +370,7 @@ def show_reports():
         print "**" * banner
         print "PASS: No Network Issues found"
         print "**" * banner
+    ### Disk Reporting ###
     if disk_report:
         print "-" * banner
         print "Errors found in the following Disk Partitions "
