@@ -34,6 +34,14 @@ if __name__ == '__main__':
         vm_ips = GetVMInfo.create_hostname_ip_matrix(interface_and_ips)
 
         print "=" * banner
+        print "CHECK FOR UNWANTED SERVICES"
+        print "=" * banner
+        for host_ip in vm_ips.values():
+            service_flag = GetVMInfo.is_active(host_ip)
+            if service_flag:
+                GetVMInfo.stop(host_ip)
+
+        print "=" * banner
         print "GETTING DISK PARTITION SIZES"
         print "=" * banner
         VM_Disk = GetVMInfo.get_disk_space_from_vm(vm_ips)
