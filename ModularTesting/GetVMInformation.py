@@ -1,5 +1,26 @@
 import paramiko
 
+services = ["NetworkManager",
+            "abrt-ccpp",
+            "abrtd",
+            "abrt-oops",
+            "avahi-daemon",
+            "avahi-dnsconfd" ,
+            "chronyd",
+            "dnsmasq" ,
+            "firewalld",
+            "ip6tables" ,
+            "iptables",
+            "kdump",
+            "postfix",
+            "rhnsd",
+            "rpcgssd" 
+            "rpcidmapd",
+            "rpcsvcgssd",
+            "sendmail",
+            "wpa_supplicant"
+            ]
+
 banner = 60
 
 #######################################################
@@ -31,10 +52,10 @@ class GetVMSpecs:
     """
     def __init__(self):
         """
-
+        init method
         """
-
-    def create_hostname_ip_matrix(self, interface_plus_ips):
+    @staticmethod
+    def create_hostname_ip_matrix(interface_plus_ips):
         """
         Method to create hostname vs IP address
         matrix that is more efficiently referenced
@@ -53,7 +74,8 @@ class GetVMSpecs:
             ssh.close()
         return vm_ips
 
-    def get_disk_space_from_vm(self, vm_ips):
+    @staticmethod
+    def get_disk_space_from_vm(vm_ips):
         """
         Method: get_disk_space_from_vm
         Purpose: To SSH into a VM and run df -h
@@ -78,7 +100,8 @@ class GetVMSpecs:
             ssh.close()
         return VM_Disk
 
-    def get_CPU_and_Memory(self, vm_ips):
+    @staticmethod
+    def get_CPU_and_Memory(vm_ips):
         """
         Method that gets CPU specs and determines if hyperthreading
         is enabled on nodes or not
@@ -99,7 +122,8 @@ class GetVMSpecs:
             CPU_Reports[hostname]["Sockets"] = int(lines[7].split()[1])
         return CPU_Reports
 
-    def read_open_network_ports(self, vm_ips):
+    @staticmethod
+    def read_open_network_ports(vm_ips):
         """
         Method that returns a list of open TCP Network
         Ports on a given node in the cluster
@@ -128,3 +152,27 @@ class GetVMSpecs:
             ports.update({hostname: port})
             port = []
         return ports
+
+    @staticmethod
+    def is_active(host_ip):
+        """Return True if service is running"""
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        for service in services:
+            cmd = '/bin/systemctl status %s.service' % service
+            ssh.connect(host_ip, username='centos', password='centos')
+            _, stdout_list, _ = ssh.exec_command(cmd)
+            for line in stdout_list:
+                if 'Active:' in line:
+                    if '(running)' in line:
+                        return True
+                return False
+
+    @staticmethod
+    def stop(host_ip):
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(host_ip, username='centos', password='centos')
+        for service in services:
+            cmd = '/bin/systemctl stop %s.service' % service
+            _, stdout_list, _ = ssh.exec_command(cmd)
