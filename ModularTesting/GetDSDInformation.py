@@ -26,6 +26,13 @@ Int_Names = ['Internal VLAN',
              'Gi VLAN VIP',
              'Backup VLAN']
 
+cluster_types_and_ports = {
+    "SMSC": ["2222", "8888", "2775", "29997", "50000", "25", "8090", "2525", "22", "111"],
+    "MMSC": ["2222", "8888", "2775", "29997", "50000", "25", "8090", "2525", "22", "111", "8090"],
+    "IMX": ["2222", "8888", "2775", "29997", "50000", "25", "8090", "2525", "22", "111", "8088", "8091", "443"],
+    "INSIGHT": ["2222", "8888", "2775", "29997", "50000", "25", "8090", "2525", "22", "111", "8087"],
+    "INSCARE": ["2222", "8888", "2775", "29997", "50000", "25", "8090", "2525", "22", "111", "8087"]
+}
 
 class ReadDSDSpec:
     """
@@ -35,7 +42,7 @@ class ReadDSDSpec:
     """
     def __init__(self):
         """
-
+        Init Method
         """
 
     def read_IP_Addresses_from_DSD(self):
@@ -78,6 +85,8 @@ class ReadDSDSpec:
                                     ]
                             }
                         )
+                        if "Backup VLAN" in str(data.get("Cluster")[interfaces][0]):
+                            break
         return interface_plus_ips
         #print interface_plus_ips
 

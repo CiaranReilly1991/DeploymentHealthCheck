@@ -17,7 +17,7 @@ class Test_DSDVsVM:
     """
     def __init__(self):
         """
-
+        Init Method
         """
 
     def compare_network_ports(self, ports, cluster_personality):
