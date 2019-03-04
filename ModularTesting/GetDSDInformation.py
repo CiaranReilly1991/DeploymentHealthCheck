@@ -1,5 +1,4 @@
 from pyexcel_ods import get_data
-import json
 import pdb
 
 data = get_data("/home/kudos/ansible/vars/DSD.ods")
@@ -88,7 +87,6 @@ class ReadDSDSpec:
                         if "Backup VLAN" in str(data.get("Cluster")[interfaces][0]):
                             break
         return interface_plus_ips
-        #print interface_plus_ips
 
     def read_disk_partitions_from_DSD(self):
         """
@@ -102,7 +100,7 @@ class ReadDSDSpec:
         with a few DSD's and seems to work fine.
 
         """
-        disk_lines = range(15, len(data.get("OS")))
+        disk_lines = range(16, len(data.get("OS")))
         for line in disk_lines:
             if "/" in (data.get("OS")[line][0]):
                 # This line extracts the Partition and the

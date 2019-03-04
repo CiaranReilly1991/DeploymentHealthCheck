@@ -54,8 +54,10 @@ class GetVMSpecs:
         """
         init method
         """
-    @staticmethod
-    def create_hostname_ip_matrix(interface_plus_ips):
+        self.username = "centos"
+        self.password = "centos"
+
+    def create_hostname_ip_matrix(self, interface_plus_ips):
         """
         Method to create hostname vs IP address
         matrix that is more efficiently referenced
@@ -67,15 +69,14 @@ class GetVMSpecs:
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         for host_ip in interface_plus_ips.get("OAM VLAN"):
-            ssh.connect(host_ip, username='centos', password='centos', allow_agent=True)
+            ssh.connect(host_ip, username=self.username, password=self.password, allow_agent=True)
             _, hostname, _ = ssh.exec_command('hostname')
             hostname = str(hostname.readlines()[0]).strip('\n')
             vm_ips[hostname] = host_ip
             ssh.close()
         return vm_ips
 
-    @staticmethod
-    def get_disk_space_from_vm(vm_ips):
+    def get_disk_space_from_vm(self, vm_ips):
         """
         Method: get_disk_space_from_vm
         Purpose: To SSH into a VM and run df -h
@@ -86,7 +87,7 @@ class GetVMSpecs:
         for host_ip, hostname in zip(vm_ips.itervalues(), vm_ips.keys()):
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(host_ip, username='centos', password='centos')
+            ssh.connect(host_ip, username=self.username, password=self.password)
             _, console_output, _ = ssh.exec_command('df -h')
             lines = console_output.readlines()
             print "-" * banner
@@ -100,30 +101,33 @@ class GetVMSpecs:
             ssh.close()
         return VM_Disk
 
-    @staticmethod
-    def get_CPU_and_Memory(vm_ips):
+    def get_CPU_and_Memory(self, vm_ips):
         """
         Method that gets CPU specs and determines if hyperthreading
         is enabled on nodes or not
         :return: Updates the CPU report at end of method
         """
         CPU_Reports = {}
+        VMFlag = False
         for host_ip, hostname in zip(vm_ips.itervalues(), vm_ips.keys()):
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(host_ip, username='centos', password='centos')
+            ssh.connect(host_ip, username=self.username, password=self.password)
             _, console_output, _ = ssh.exec_command('lscpu')
             lines = console_output.readlines()
             ssh.close()
+            for vmcheck in lines:
+                if "VMware" in vmcheck:
+                    VMFlag = True
             CPU_Reports[hostname] = {}
             CPU_Reports[hostname][host_ip] = host_ip
             CPU_Reports[hostname]["CPUs"] = int(lines[3].split()[1])
             CPU_Reports[hostname]["CoreThreads"] = int(lines[5].split()[3])
             CPU_Reports[hostname]["Sockets"] = int(lines[7].split()[1])
+            CPU_Reports[hostname]["VMFlag"] = VMFlag
         return CPU_Reports
 
-    @staticmethod
-    def read_open_network_ports(vm_ips):
+    def read_open_network_ports(self, vm_ips):
         """
         Method that returns a list of open TCP Network
         Ports on a given node in the cluster
@@ -133,12 +137,13 @@ class GetVMSpecs:
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         port = []
         for hostname, host_ip in zip(vm_ips.keys(), vm_ips.values()):
-            ssh.connect(host_ip, username='centos', password='centos')
+            ssh.connect(host_ip, username=self.username,  password=self.password)
             print "-" * banner
             print "Scanning open ports remote host", hostname
             print "-" * banner
             ###  List of open TCP ports
             ###  netstat -vatn | grep -i LISTEN
+            # netstat -an
             _, open_ports, _ = ssh.exec_command('netstat -vatn | grep -i LISTEN')
             port_list = open_ports.readlines()
             ssh.close()
@@ -153,26 +158,30 @@ class GetVMSpecs:
             port = []
         return ports
 
-    @staticmethod
-    def is_active(host_ip):
+    def is_active(self, host_ip):
         """Return True if service is running"""
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         for service in services:
             cmd = '/bin/systemctl status %s.service' % service
-            ssh.connect(host_ip, username='centos', password='centos')
+            ssh.connect(host_ip, username=self.username, password=self.password)
             _, stdout_list, _ = ssh.exec_command(cmd)
-            for line in stdout_list:
-                if 'Active:' in line:
-                    if '(running)' in line:
-                        return True
-                return False
+            output = stdout_list.readlines()
+            ssh.close()
+            if "Active: active (running)" in output[2]:
+                return True
+            else:
+                continue
 
     @staticmethod
     def stop(host_ip):
+        """
+        Method that will kill any unnecessary linux services running the background
+        PROBLEM: Root password changes from env to env
+        """
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(host_ip, username='centos', password='centos')
+        ssh.connect(host_ip, username='root', password="")
         for service in services:
             cmd = '/bin/systemctl stop %s.service' % service
             _, stdout_list, _ = ssh.exec_command(cmd)

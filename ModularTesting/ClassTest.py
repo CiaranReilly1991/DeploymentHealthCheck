@@ -36,10 +36,18 @@ if __name__ == '__main__':
         print "=" * banner
         print "CHECK FOR UNWANTED SERVICES"
         print "=" * banner
-        for host_ip in vm_ips.values():
+        for host_ip, hostname in zip(vm_ips.values(), vm_ips.keys()):
             service_flag = GetVMInfo.is_active(host_ip)
+            print "=" * banner
+            print "Checking Node " + hostname
             if service_flag:
-                GetVMInfo.stop(host_ip)
+                print "*" * banner
+                print "Un-necessary Services Detected: Kill Manually or with Ansible"
+                print "*" * banner
+            else:
+                print "*" * banner
+                print "Services Disabled"
+                print "*" * banner
 
         print "=" * banner
         print "GETTING DISK PARTITION SIZES"
@@ -90,6 +98,8 @@ if __name__ == '__main__':
                     print "-" * banner
                     print "WARNING: MISMATCHED (CORE THREADS * SOCKETS) Vs CPUs"
                     print "-" * banner
+                if cpu_reports[hostnames]["VMFlag"]:
+                    print "Hypervisor Detected VMware"
                 print "CPUs " + str(cpu_reports[hostnames]["CPUs"])
                 print "Hyper-Threading " + cpu_reports[hostnames]["Threading "]
                 print "Core Threads " + str(cpu_reports[hostnames]["CoreThreads"])

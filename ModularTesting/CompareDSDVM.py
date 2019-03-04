@@ -10,6 +10,7 @@ cluster_types_and_ports = {
     "INSCARE": ["2222", "8888", "2775", "29997", "50000", "25", "8090", "2525", "22", "111", "8087"]
 }
 
+
 class Test_DSDVsVM:
     """
     Test Class for comparing expected outputs with VM outputs
@@ -19,6 +20,8 @@ class Test_DSDVsVM:
         """
         Init Method
         """
+        self.username = "centos"
+        self.password = "centos"
 
     def compare_network_ports(self, ports, cluster_personality):
         """
@@ -63,7 +66,7 @@ class Test_DSDVsVM:
                     print "Testing Network " + network + "\n"
                     print "*" * banner
                     for ip in ips:
-                        ssh.connect(host_ip, username='centos', password='centos', allow_agent=True)
+                        ssh.connect(host_ip, username=self.username, password=self.password, allow_agent=True)
                         _, resp, _ = ssh.exec_command('/usr/bin/ping -c 3 ' + ip)
                         # This line prints all the ping responses
                         print resp.readlines()
