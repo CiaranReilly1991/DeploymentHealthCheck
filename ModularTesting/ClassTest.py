@@ -13,10 +13,16 @@ if __name__ == '__main__':
     print "=" * banner
     print "READING INFORMATION FROM THE CUSTOMERS DSD"
     print "=" * banner
+
+    print "-" * banner
+    print "READING NUMBER OF NODES IN CLUSTER"
+    sum_of_nodes = ReadDSD.read_number_of_nodes()
+    print "-" * banner
+
     cluster_personality = GetDSDInformation.cluster_personality
     cluster_ports = GetDSDInformation.cluster_types_and_ports
     DSD_Disk = ReadDSD.read_disk_partitions_from_DSD()
-    interface_and_ips = ReadDSD.read_IP_Addresses_from_DSD()
+    interface_and_ips, sigtran_interfaces = ReadDSD.read_IP_Addresses_from_DSD(sum_of_nodes)
 
     if (cluster_ports or DSD_Disk or interface_and_ips) == {}:
         print "* * *" * banner

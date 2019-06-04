@@ -76,6 +76,25 @@ class GetVMSpecs:
             ssh.close()
         return vm_ips
 
+    def get_interface_buffer_size(self, vm_ips, sigtran_specs):
+        """
+        Method to check the Tx/Rx buffer sizes of a given nodes interface
+        :param vm_ips: Dictionary of VM Ip addresses and their hostnames
+        :return: Buffer sizes per node
+        """
+        for host_ip, hostname in zip(vm_ips.itervalues(), vm_ips.keys()):
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(host_ip, username=self.username, password=self.password)
+            for sig_interfaces in sigtran_specs:
+                ethtool_cmd = "ethtool -g %s" % sig_interfaces
+                _, console_output, _ = ssh.exec_command(ethtool_cmd)
+                lines = console_output.readlines()
+            ssh.close()
+
+
+        return
+
     def get_disk_space_from_vm(self, vm_ips):
         """
         Method: get_disk_space_from_vm

@@ -1,8 +1,7 @@
 from pyexcel_ods import get_data
-import pdb
 
 data = get_data("/home/kudos/ansible/vars/DSD.ods")
-#data = get_data("../DSD_Du_MMSC_S2.ods")
+#data = get_data("../MMSC_Live.ods")
 
 cluster_personality = data.get("Other")[22][1]
 banner = 60
@@ -11,18 +10,16 @@ DSD_Disk = {}
 vm_ips = {}
 ports = {}
 interface_plus_ips = {}
+sigtran_interfaces = {}
+sum_of_nodes = 1
+
 Int_Names = ['Internal VLAN',
-             'Internal VLAN VIP',
              'External VLAN',
-             'External VLAN VIP',
              'SIGTRAN VLAN A',
              'SIGTRAN VLAN B',
              'OAM VLAN',
-             'OAM VLAN VIP',
              'Gy VLAN',
-             'Gy VLAN VIP',
              'Gi VLAN',
-             'Gi VLAN VIP',
              'Backup VLAN']
 
 cluster_types_and_ports = {
@@ -32,6 +29,7 @@ cluster_types_and_ports = {
     "INSIGHT": ["2222", "8888", "2775", "29997", "50000", "25", "8090", "2525", "22", "111", "8087"],
     "INSCARE": ["2222", "8888", "2775", "29997", "50000", "25", "8090", "2525", "22", "111", "8087"]
 }
+
 
 class ReadDSDSpec:
     """
@@ -43,8 +41,42 @@ class ReadDSDSpec:
         """
         Init Method
         """
+        self.sum_of_nodes=0
 
-    def read_IP_Addresses_from_DSD(self):
+    def read_number_of_nodes(self):
+        """
+        Gathers the number of nodes for later computing
+        :return: Integer
+        """
+        line = 38
+        flag = True
+
+        try:
+            isinstance(data.get("Cluster")[line][6], basestring)
+        except Exception:
+            print "Line indexing out of sync"
+
+        while flag:
+            line += 1
+            self.sum_of_nodes += 1
+            try:
+                if "." in data.get("Cluster")[line][1]:
+                    # Check for IP sooner than thought
+                    flag = False
+                else:
+                    try:
+                        isinstance(data.get("Cluster")[line][1], basestring)
+                    except IndexError as error:
+                        # Output expected IndexErrors.
+                        flag = False
+            except IndexError:
+                flag = False
+
+        print "Number of Nodes are"
+        print self.sum_of_nodes
+        return self.sum_of_nodes - 1
+
+    def read_IP_Addresses_from_DSD(self, sum_of_nodes):
         """
         Please do not modify this method :-D
         This method extracts all IP and Network Address information from
@@ -56,6 +88,7 @@ class ReadDSDSpec:
             if (data.get("Cluster")[interfaces]) == []:
                 continue
             elif str(data.get("Cluster")[interfaces][0]) in Int_Names:
+                # Check for VIP interfaces and filter
                 if "VIP" in str(data.get("Cluster")[interfaces][0]):
                     if len(data.get("Cluster")[interfaces]) is not 1 \
                             and isinstance(str(data.get("Cluster")[interfaces][1]), str):
@@ -70,23 +103,46 @@ class ReadDSDSpec:
                         )
                     else:
                         continue
+                # Filter for sigtran interfaces for later
+                if "SIGTRAN" in str(data.get("Cluster")[interfaces][0]):
+                    sigtran_interfaces.update(self.fill_IP_dictionary(interfaces))
+
+                # For all other interfaces with valid IPs,extract and store for later
                 elif isinstance(str(data.get("Cluster")[interfaces][1]), str) and not '':
                     if (data.get("Cluster")[interfaces + 1] and data.get("Cluster")[interfaces + 2]) and \
                             (data.get("Cluster")[interfaces + 1][0] or data.get("Cluster")[interfaces + 2][
                                 0]) is not '':
-                        interface_plus_ips.update(
-                            {
-                                str(data.get("Cluster")[interfaces][0]):
-                                    [
-                                        str(data.get("Cluster")[interfaces][1]),
-                                        str(data.get("Cluster")[interfaces + 1][0]),
-                                        str(data.get("Cluster")[interfaces + 2][0])
-                                    ]
-                            }
-                        )
+                        #print data.get("Cluster")[interfaces]
+                        interface_plus_ips.update(self.fill_IP_dictionary(interfaces))
+
                         if "Backup VLAN" in str(data.get("Cluster")[interfaces][0]):
-                            break
-        return interface_plus_ips
+                            continue
+        return interface_plus_ips, sigtran_interfaces
+
+
+    def fill_IP_dictionary(self, interfaces):
+        """
+        Dont ask dictionaries X-F
+        :param interface_plus_ips:
+        :return: IP addresses from DSD based on size of cluster
+        """
+        new_list = []
+        ips_dict = {}
+
+        new_list.append(str(data.get("Cluster")[interfaces][1]))
+        for i in xrange(1, self.sum_of_nodes):
+            new_list.append(str(data.get("Cluster")[interfaces+i][0]))
+
+        ips_dict.update(
+            {
+                str(data.get("Cluster")[interfaces][0]):
+                    [
+                        new_list
+                    ]
+            }
+        )
+        return ips_dict
+
 
     def read_disk_partitions_from_DSD(self):
         """
