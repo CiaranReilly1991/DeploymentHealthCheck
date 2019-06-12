@@ -1,7 +1,7 @@
 from pyexcel_ods import get_data
 
-data = get_data("/home/kudos/ansible/vars/DSD.ods")
-#data = get_data("../MMSC_Live.ods")
+#data = get_data("/home/kudos/ansible/vars/DSD.ods")
+data = get_data("DSDs/DSD-GMSU.ods")
 
 cluster_personality = data.get("Other")[22][1]
 banner = 60
@@ -85,28 +85,19 @@ class ReadDSDSpec:
         :return: Dictionary of IP and Interfaces
         """
         for interfaces in range(38, len(data.get("Cluster"))):
+            #print str(data.get("Cluster")[interfaces][0])
+            # Check for VIP interfaces and filter out any IPs
+            try:
+                if "VIP" in str(data.get("Cluster")[interfaces]):
+                    continue
+            except UnicodeEncodeError:
+                continue
             if (data.get("Cluster")[interfaces]) == []:
                 continue
             elif str(data.get("Cluster")[interfaces][0]) in Int_Names:
-                # Check for VIP interfaces and filter
-                if "VIP" in str(data.get("Cluster")[interfaces][0]):
-                    if len(data.get("Cluster")[interfaces]) is not 1 \
-                            and isinstance(str(data.get("Cluster")[interfaces][1]), str):
-                        interface_plus_ips.update(
-                            {
-                                str(data.get("Cluster")[interfaces][0])
-                                :
-                                    [
-                                        str(data.get("Cluster")[interfaces][1])
-                                    ]
-                            }
-                        )
-                    else:
-                        continue
                 # Filter for sigtran interfaces for later
                 if "SIGTRAN" in str(data.get("Cluster")[interfaces][0]):
                     sigtran_interfaces.update(self.fill_IP_dictionary(interfaces))
-
                 # For all other interfaces with valid IPs,extract and store for later
                 elif isinstance(str(data.get("Cluster")[interfaces][1]), str) and not '':
                     if (data.get("Cluster")[interfaces + 1] and data.get("Cluster")[interfaces + 2]) and \
@@ -114,11 +105,11 @@ class ReadDSDSpec:
                                 0]) is not '':
                         #print data.get("Cluster")[interfaces]
                         interface_plus_ips.update(self.fill_IP_dictionary(interfaces))
-
                         if "Backup VLAN" in str(data.get("Cluster")[interfaces][0]):
                             continue
+        #print interface_plus_ips
+        #print sigtran_interfaces
         return interface_plus_ips, sigtran_interfaces
-
 
     def fill_IP_dictionary(self, interfaces):
         """
@@ -143,7 +134,6 @@ class ReadDSDSpec:
         )
         return ips_dict
 
-
     def read_disk_partitions_from_DSD(self):
         """
         Method: read_disk_partitions_from_DSD
@@ -161,12 +151,15 @@ class ReadDSDSpec:
             if "/" in (data.get("OS")[line][0]):
                 # This line extracts the Partition and the
                 # Size in GB from the OS tab in the DSD
-                DSD_Disk.update(
-                    {
-                        str(data.get("OS")[line][0]):
-                            str(data.get("OS")[line][4]) + " GB"
-                    }
-                )
+                try:
+                    DSD_Disk.update(
+                        {
+                            str(data.get("OS")[line][0]):
+                                str(data.get("OS")[line][4]) + " GB"
+                        }
+                    )
+                except IndexError:
+                    continue
             else:
                 break
         return DSD_Disk

@@ -91,8 +91,6 @@ class GetVMSpecs:
                 _, console_output, _ = ssh.exec_command(ethtool_cmd)
                 lines = console_output.readlines()
             ssh.close()
-
-
         return
 
     def get_disk_space_from_vm(self, vm_ips):
