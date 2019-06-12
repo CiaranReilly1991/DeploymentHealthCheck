@@ -1,7 +1,7 @@
 from pyexcel_ods import get_data
 
-#data = get_data("/home/kudos/ansible/vars/DSD.ods")
-data = get_data("DSDs/DSD-GMSU.ods")
+data = get_data("/home/kudos/ansible/vars/DSD.ods")
+#data = get_data("DSDs/DSD-GMSU.ods")
 
 cluster_personality = data.get("Other")[22][1]
 banner = 60
