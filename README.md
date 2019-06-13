@@ -6,4 +6,13 @@ Runs from deployment container for various sites, to run ensure the following is
 3. Command to run the health check on a given deployment it "python DeploymentHealthCheck.py"
 4. The size of the cluster does not matter, if its a big cluster you maybe waiting a while. 
 
+# GetVMInformation.py
+Gathers any details from the cluster VMs on site via SSH connectivity, and stores the information in a dictionary for later comparison
+
+# GetDSDInformation.py
+Parses DSD.ods files found on the deployment container for later testing and comparing
+
+# CompareDSDVM.py
+Test script where the extracted DSD information is compared with teh physical config found on a customer site
+
 Any questions contact me.
