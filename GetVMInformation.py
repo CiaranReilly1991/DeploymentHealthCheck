@@ -1,4 +1,5 @@
 import paramiko
+import json
 
 services = ["NetworkManager",
             "abrt-ccpp",
@@ -107,9 +108,9 @@ class GetVMSpecs:
             ssh.connect(host_ip, username=self.username, password=self.password)
             _, console_output, _ = ssh.exec_command('df -h')
             lines = console_output.readlines()
-            print "-" * banner
-            print "SSH-ing to VM " + hostname + "\n"
-            print "-" * banner
+            # print "-" * banner
+            # print "SSH-ing to VM " + hostname + "\n"
+            # print "-" * banner
             for i in range(1, len(lines)):
                 VM_Disk.update({lines[i].split()[5]: lines[i].split()[1]})
             print "-" * banner
@@ -185,20 +186,10 @@ class GetVMSpecs:
             _, stdout_list, _ = ssh.exec_command(cmd)
             output = stdout_list.readlines()
             ssh.close()
-            if "Active: active (running)" in output[2]:
-                return True
-            else:
-                continue
-
-    @staticmethod
-    def stop(host_ip):
-        """
-        Method that will kill any unnecessary linux services running the background
-        PROBLEM: Root password changes from env to env
-        """
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(host_ip, username='root', password="")
-        for service in services:
-            cmd = '/bin/systemctl stop %s.service' % service
-            _, stdout_list, _ = ssh.exec_command(cmd)
+            try:
+                if "Active: active (running)" in output:
+                    return True
+                else:
+                    continue
+            except IndexError:
+                    continue

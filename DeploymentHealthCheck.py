@@ -38,7 +38,10 @@ if __name__ == '__main__':
         print "=" * banner
         print "CREATING HOSTNAME MATRIX"
         print "=" * banner
-        vm_ips = GetVMInfo.create_hostname_ip_matrix(interface_and_ips)
+        vm_list = GetVMInfo.create_hostname_ip_matrix(interface_and_ips)
+        vm_ips = {}
+        for host_ip, hostname in zip(vm_list.values(), vm_list.keys()):
+            vm_ips.update({hostname: host_ip})
 
         print "=" * banner
         print "CHECK FOR UNWANTED SERVICES"
@@ -102,11 +105,12 @@ if __name__ == '__main__':
                     cpu_reports[hostnames]["Threading "] = " Disabled"
                 if cpu_reports[hostnames]["CoreThreads"] * cpu_reports[hostnames]["Sockets"] != \
                         cpu_reports[hostnames]["CPUs"]:
-                    print "-" * banner
-                    print "WARNING: MISMATCHED (CORE THREADS * SOCKETS) Vs CPUs"
-                    print "-" * banner
-                if cpu_reports[hostnames]["VMFlag"]:
-                    print "Hypervisor Detected VMware"
+                    if cpu_reports[hostnames]["VMFlag"]:
+                        print "Hypervisor Detected VMware"
+                    else:
+                        print "-" * banner
+                        print "WARNING: MISMATCHED (CORE THREADS * SOCKETS) Vs CPUs"
+                        print "-" * banner
                 print "CPUs " + str(cpu_reports[hostnames]["CPUs"])
                 print "Hyper-Threading " + cpu_reports[hostnames]["Threading "]
                 print "Core Threads " + str(cpu_reports[hostnames]["CoreThreads"])

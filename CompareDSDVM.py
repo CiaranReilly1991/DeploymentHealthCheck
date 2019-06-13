@@ -69,8 +69,9 @@ class Test_DSDVsVM:
                         ssh.connect(host_ip, username=self.username, password=self.password, allow_agent=True)
                         _, resp, _ = ssh.exec_command('/usr/bin/ping -c 3 ' + ip)
                         # This line prints all the ping responses
-                        print resp.readlines()
-                        print "Pinging IP " + ip + " from network " + network + " on node " + host_ip + "\n"
+                        #print resp.readlines()
+                        print "Pinging IP " + ip + " from " + network + " network on " + hostname + \
+                              "(" + host_ip + ")" + "\n"
                         try:
                             assert (len(resp.readlines()) < 4)
                         except AssertionError as e:
@@ -99,15 +100,24 @@ class Test_DSDVsVM:
                         str(round
                             (float(
                                 VM_Disk[dsd_partition].strip(' M')) * 0.001, 1)) + " GB"
-                if (DSD_Disk[dsd_partition].strip('GB') == VM_Disk[dsd_partition].strip('GB')) \
-                        or (round(float(DSD_Disk[dsd_partition].strip('GB'))) ==
-                            round(float(VM_Disk[dsd_partition].strip('GB')))):
+                try:
+                    if (DSD_Disk[dsd_partition].strip('GB') == VM_Disk[dsd_partition].strip('GB')) \
+                            or (round(float(DSD_Disk[dsd_partition].strip('GB'))) ==
+                                round(float(VM_Disk[dsd_partition].strip('GB')))):
+                        print "**" * banner
+                        print dsd_partition + " PASS"
+                        print "**" * banner
+                        continue
+                    else:
+                        disk_report[dsd_partition] = [DSD_Disk[dsd_partition],
+                                                      VM_Disk[dsd_partition]]
+                        continue
+                except ValueError:
                     print "**" * banner
-                    print dsd_partition + " PASS"
+                    print "Disk Size not parsable"
                     print "**" * banner
-                    continue
-                else:
-                    disk_report[dsd_partition] = [DSD_Disk[dsd_partition],
-                                                  VM_Disk[dsd_partition]]
+                    print "Missing information from DSD ?"
+                    print DSD_Disk[dsd_partition]
+                    print VM_Disk[dsd_partition]
                     continue
         return disk_report

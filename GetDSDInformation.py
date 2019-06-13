@@ -126,10 +126,7 @@ class ReadDSDSpec:
 
         ips_dict.update(
             {
-                str(data.get("Cluster")[interfaces][0]):
-                    [
-                        new_list
-                    ]
+                str(data.get("Cluster")[interfaces][0]): new_list
             }
         )
         return ips_dict
