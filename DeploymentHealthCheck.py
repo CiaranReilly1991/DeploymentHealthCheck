@@ -60,6 +60,19 @@ if __name__ == '__main__':
                 print "*" * banner
 
         print "=" * banner
+        print "CHECKING LINUX RUN-LEVEL"
+        print "=" * banner
+        for host_ip, hostname in zip(vm_ips.values(), vm_ips.keys()):
+            runlevel = GetVMInfo.get_run_level(host_ip)
+            if "run-level 3" in runlevel:
+                continue
+            else:
+                print "-" * banner
+                print "ERROR host Runlevel should be 3"
+                print "Currently " + runlevel + " on " + hostname + " : " + host_ip
+                print "-" * banner
+
+        print "=" * banner
         print "GETTING DISK PARTITION SIZES"
         print "=" * banner
         VM_Disk = GetVMInfo.get_disk_space_from_vm(vm_ips)

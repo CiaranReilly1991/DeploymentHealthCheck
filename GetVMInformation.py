@@ -193,3 +193,21 @@ class GetVMSpecs:
                     continue
             except IndexError:
                     continue
+
+    def get_run_level(self, host_ip):
+        """
+        Method that will get the specific nodes run level
+        and ensure its set to 3
+        :param host_ip: IP of node being run on
+        :return:
+        """
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        cmd = 'who -r'
+        ssh.connect(host_ip, username=self.username, password=self.password)
+        _, stdout_list, _ = ssh.exec_command(cmd)
+        output = stdout_list.readlines()
+        ssh.close()
+
+        return output[0]
+
